@@ -1,23 +1,9 @@
-#include <chrono>
+#include <timer.hpp>
+
 #include <fstream>
 #include <iostream>
 #include <random>
 #include <thread>
-
-struct cpu_timer {
- public:
-  cpu_timer() : start_time(), end_time() {}
-  void start() { start_time = std::chrono::high_resolution_clock::now(); }
-  void stop() { end_time = std::chrono::high_resolution_clock::now(); }
-  double elapsed_seconds() const {
-    std::chrono::duration<double> elapsed_seconds = end_time - start_time;
-    return elapsed_seconds.count();
-  }
-
- private:
-  std::chrono::high_resolution_clock::time_point start_time;
-  std::chrono::high_resolution_clock::time_point end_time;
-};
 
 struct file {
   file(std::string filename, uint64_t bytes)
@@ -114,22 +100,19 @@ int main() {
     write_timer.start();
     test_file.write();
     write_timer.stop();
-    double write_seconds = write_timer.elapsed_seconds();
-    std::cout << double{size} / write_seconds / double{1 << 30} << " GB/s [Write]"
-              << std::endl;
+    std::cout << write_timer.compute_gbs(double{size}) << " GB/s [Write]" << std::endl;
 
     cpu_timer read_timer;
     test_file.clear();
     read_timer.start();
     test_file.read();
     read_timer.stop();
-    double read_seconds = read_timer.elapsed_seconds();
     if (!test_file.state_match_reference()) {
       std::cout << "Validation failed" << std::endl;
       return 0;
     }
-    std::cout << double{size} / read_seconds / double{1 << 30} << " GB/s [Read]"
-              << std::endl;
+    std::cout << read_timer.compute_gbs(double{size}) << " GB/s [Read]" << std::endl;
+
     const uint32_t num_threads = 8;
     for (uint32_t threads = 2; threads <= num_threads; threads++) {
       cpu_timer par_read_timer;
@@ -137,13 +120,12 @@ int main() {
       par_read_timer.start();
       test_file.read_parallel(threads);
       par_read_timer.stop();
-      double par_read_seconds = par_read_timer.elapsed_seconds();
       if (!test_file.state_match_reference()) {
         std::cout << "Validation failed" << std::endl;
         return 0;
       }
-      std::cout << double{size} / par_read_seconds / double{1 << 30} << " GB/s [Read] "
-                << threads << " threads" << std::endl;
+      std::cout << par_read_timer.compute_gbs(double{size}) << " GB/s [Read] " << threads
+                << " threads" << std::endl;
     }
   }
 
